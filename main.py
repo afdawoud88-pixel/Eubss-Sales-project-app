@@ -59,5 +59,8 @@ class MilestoneUpdate(BaseModel):
 class MilestoneCreate(BaseModel):
     title: str
     amount: float
-
 class TaskCreate(BaseModel):
+    vendor_id: str
+    description: str
+    amount: float
+    linked_milestone_index: int
