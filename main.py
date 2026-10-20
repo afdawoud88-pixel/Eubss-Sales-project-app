@@ -8,8 +8,10 @@ from typing import List
 from dotenv import load_dotenv
 from twilio.rest import Client as TwilioClient
 
+# تحميل متغيرات البيئة
 load_dotenv()
 
+# إعداد الاتصال بقاعدة بيانات Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
@@ -59,63 +61,3 @@ class MilestoneCreate(BaseModel):
     amount: float
 
 class TaskCreate(BaseModel):
-    vendor_id: str
-    description: str
-    amount: float
-    linked_milestone_index: int
-
-class ProjectCreate(BaseModel):
-    client_id: str
-    name: str
-    total_value: float
-    milestones: List[MilestoneCreate]
-    tasks: List[TaskCreate]
-
-class TaskUpdate(BaseModel):
-    status: str
-
-... class AttachmentUpdate(BaseModel):
-...     url: str
-... 
-... # 4. مسارات (Endpoints) النظام
-... @app.get("/api/vendor-payments/all")
-... def get_all_vendor_payments(user: dict = Depends(verify_token)):
-...     return {"data": supabase.table("purchase_orders").select("*, vendors(name), projects(name)").execute().data}
-... 
-... @app.get("/api/client-milestones/pending")
-... def get_pending_milestones(user: dict = Depends(verify_token)):
-...     return {"data": supabase.table("client_milestones").select("*, projects(name)").eq("status", "Pending").execute().data}
-... 
-... @app.put("/api/client-milestones/{milestone_id}")
-... def update_client_milestone(milestone_id: str, payload: MilestoneUpdate, user: dict = Depends(verify_token)):
-...     supabase.table("client_milestones").update({"status": payload.status}).eq("id", milestone_id).execute()
-...     return {"message": "تم التحصيل"}
-... 
-... @app.put("/api/traffic-tasks/{task_id}")
-... def update_traffic_status(task_id: str, payload: TaskUpdate, user: dict = Depends(verify_token)):
-...     supabase.table("purchase_orders").update({"traffic_status": payload.status}).eq("id", task_id).execute()
-...     return {"message": "تم تحديث الحالة"}
-... 
-... @app.put("/api/traffic-tasks/{task_id}/attachment")
-... def update_task_attachment(task_id: str, payload: AttachmentUpdate, user: dict = Depends(verify_token)):
-...     supabase.table("purchase_orders").update({"attachment_url": payload.url}).eq("id", task_id).execute()
-...     return {"message": "تم حفظ الرابط"}
-... 
-... @app.post("/api/projects/new")
-... def create_new_project(payload: ProjectCreate, user: dict = Depends(verify_token)):
-...     proj = supabase.table("projects").insert({"client_id": payload.client_id, "name": payload.name, "total_value": payload.total_value}).execute()
-...     proj_id = proj.data[0]['id']
-...     
-...     ms_ids = []
-...     for ms in payload.milestones:
-...         res = supabase.table("client_milestones").insert({"project_id": proj_id, "title": ms.title, "amount": ms.amount}).execute()
-...         ms_ids.append(res.data[0]['id'])
-... 
-...     for task in payload.tasks:
-...         supabase.table("purchase_orders").insert({
-...             "project_id": proj_id, "vendor_id": task.vendor_id,
-...             "linked_client_milestone_id": ms_ids[task.linked_milestone_index],
-...             "description": task.description, "amount": task.amount
-...         }).execute()
-... 
-...     send_whatsapp_to_ops(payload.name, len(payload.tasks))
